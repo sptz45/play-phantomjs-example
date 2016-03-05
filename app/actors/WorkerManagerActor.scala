@@ -38,5 +38,6 @@ class WorkerManagerActor(workerProps: Props, maxWorkers: Int) extends Actor {
 }
 
 object WorkerManagerActor {
-  def props(workerProps: Props, maxWorkers: Int) = Props(new WorkerManagerActor(workerProps, maxWorkers))
+  def props(workerProps: Props, maxWorkers: Int) =
+    Props(new WorkerManagerActor(workerProps, maxWorkers))
 }

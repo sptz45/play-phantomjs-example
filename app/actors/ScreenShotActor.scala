@@ -1,15 +1,19 @@
 package actors
 
+import javax.inject.{Singleton, Inject}
+
 import akka.actor._
 import actors.msgs._
+import config.AppConfig
 import util._
 
-class ScreenShotActor extends Actor {
+@Singleton
+class ScreenShotActor @Inject() (config: AppConfig, fileCache: UnsafeFileCache, phantomJs: PhantomJs) extends Actor {
 
-  private def maxWorkers = AppConfig.maxNumberOfWorkers
+  private def maxWorkers = config.maxNumberOfWorkers
 
   private val workerManager = context.actorOf(
-      WorkerManagerActor.props(ScreenShotWorkerActor.props(self), maxWorkers))
+      WorkerManagerActor.props(ScreenShotWorkerActor.props(self, phantomJs), maxWorkers))
 
   private var scheduler: Cancellable = _
       
@@ -20,7 +24,7 @@ class ScreenShotActor extends Actor {
   override val receive: Receive = {
 
     case WebPage(url) =>
-      UnsafeFileCache.getFile(url) match {
+      fileCache.getFile(url) match {
         case None =>
           workerManager ! ScreenShotRequest(url, sender)
         case Some(path) =>
@@ -28,14 +32,14 @@ class ScreenShotActor extends Actor {
       }
 
     case ScreenShotReply(url, screenshot) =>
-      UnsafeFileCache.putFile(url, screenshot)
+      fileCache.putFile(url, screenshot)
 
     case PeriodicCacheEviction =>
-      UnsafeFileCache.evictOldEntries()
+      fileCache.evictOldEntries()
   }
 
   private def schedulePeriodicCacheEvictions() = {
-    val evictionPeriod = AppConfig.cacheEvictionPeriod
+    val evictionPeriod = config.cacheEvictionPeriod
     implicit val threadPool = context.dispatcher
     scheduler = context.system.scheduler
       .schedule(evictionPeriod, evictionPeriod, self, PeriodicCacheEviction)
@@ -44,5 +48,5 @@ class ScreenShotActor extends Actor {
 
 
 object ScreenShotActor {
-  def props = Props(new ScreenShotActor)
+  final val name = "screenshot"
 }

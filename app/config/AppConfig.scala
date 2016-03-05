@@ -1,12 +1,17 @@
-package util
+package config
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
-import akka.util.Timeout
-import play.api.libs.concurrent.Execution
-import play.api.Play.current
+import javax.inject.Singleton
 
-object AppConfig {
+import akka.util.Timeout
+import com.google.inject.Inject
+import play.api.Configuration
+import play.api.libs.concurrent.Execution
+
+import scala.concurrent.duration.FiniteDuration
+
+@Singleton
+class AppConfig @Inject() (configuration: Configuration){
 
   implicit val defaultThreadPool = Execution.Implicits.defaultContext
 
@@ -26,15 +31,15 @@ object AppConfig {
   // -- private helpers -------------------------------------------------------
 
   private def getConfig(key: String) =
-    current.configuration.getString(key).getOrElse(
+    configuration.getString(key).getOrElse(
       sys.error(s"Please assign the '$key' property in application.conf"))
 
   private def getBoolean(key: String) =
-    current.configuration.getBoolean(key).getOrElse(
+    configuration.getBoolean(key).getOrElse(
       sys.error(s"Please assign the '$key' property in application.conf"))
 
   private def getDuration(key: String) =
-    current.configuration.getMilliseconds(key)
+    configuration.getMilliseconds(key)
       .map(millis => FiniteDuration(millis, TimeUnit.MILLISECONDS))
       .getOrElse(sys.error(s"Please assign the '$key' property in application.conf"))
 }

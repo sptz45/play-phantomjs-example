@@ -1,14 +1,14 @@
 package actors
 
-import akka.actor._
-import util.{ PhantomJs, InputSource }
 import actors.msgs._
+import akka.actor._
+import util.{InputSource, PhantomJs}
 
-class ScreenShotWorkerActor(cacheActor: ActorRef) extends Actor {
+class ScreenShotWorkerActor(cacheActor: ActorRef, phantomJs: PhantomJs) extends Actor {
 
   def receive: Receive = {
     case ScreenShotRequest(url, requestor) =>
-      val screenshot = PhantomJs.getWebsiteAsImage(url)
+      val screenshot = phantomJs.getWebsiteAsImage(url)
       requestor ! InputSource(screenshot)
       cacheActor ! ScreenShotReply(url, screenshot)
       context.stop(self)
@@ -16,5 +16,6 @@ class ScreenShotWorkerActor(cacheActor: ActorRef) extends Actor {
 }
 
 object ScreenShotWorkerActor {
-  def props(cacheActor: ActorRef): Props = Props(new ScreenShotWorkerActor(cacheActor))
+  def props(cacheActor: ActorRef, phantomJs: PhantomJs): Props =
+    Props(new ScreenShotWorkerActor(cacheActor, phantomJs))
 }

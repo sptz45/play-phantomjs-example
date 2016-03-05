@@ -5,10 +5,10 @@ import scala.collection.mutable
 import play.api.libs.Codecs
 
 
-object UnsafeFileCache {
+class UnsafeFileCache(cacheDir: String) {
 
   private val cacheDirectory = {
-    val dir = Paths.get(AppConfig.cacheDirectory)
+    val dir = Paths.get(cacheDir)
     FileUtils.ensureDirectoryExists(dir)
     dir
   }

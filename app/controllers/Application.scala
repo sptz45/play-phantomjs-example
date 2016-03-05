@@ -1,21 +1,27 @@
 package controllers
 
-import scala.concurrent.Future
-import akka.pattern.ask
-import play.api.Play.current
-import play.api.libs.concurrent.Akka
-import play.api.libs.iteratee.Enumerator
-import play.api.mvc._
-import actors.{ ScreenShotActor, TooManyRequestsException }
+import javax.inject.{Named, Inject, Singleton}
+
+import actors.{ScreenShotActor, TooManyRequestsException}
 import actors.msgs.WebPage
-import util.AppConfig.{ defaultThreadPool, requestTimeout }
+import akka.actor.ActorRef
+import akka.pattern.ask
+import akka.stream.scaladsl.StreamConverters
+import config.AppConfig
+import play.api.http.HttpEntity
+import play.api.mvc._
 import util.InputSource
 
-object Application extends Controller {
+import scala.concurrent.Future
 
-  private val screenShotActor = Akka.system.actorOf(ScreenShotActor.props, "screenshot")
+@Singleton
+class Application @Inject() (
+  config: AppConfig,
+  @Named(ScreenShotActor.name) screenShotActor: ActorRef) extends Controller {
 
-  def capture(url: String) = Action.async { stream(askForScreenShotOf(url)) }
+  import config.{defaultThreadPool, requestTimeout}
+
+  def capture(url: String) = Action.async { streamFile(askForScreenShotOf(url)) }
 
 
   // -- private helpers -------------------------------------------------------
@@ -24,11 +30,12 @@ object Application extends Controller {
     (screenShotActor ? WebPage(url)).mapTo[InputSource]
   }
 
-  private def stream(screenshot: Future[InputSource]) = {
+  private def streamFile(screenshot: Future[InputSource]) = {
     screenshot map { in =>
-      Result(
-        header = ResponseHeader(200),
-        body = Enumerator.fromStream(in.getInputStream))
+      val stream = StreamConverters.fromInputStream(in.getInputStream)
+      val entity = HttpEntity.Streamed(stream, None, Some("image/png"))
+      Ok.sendEntity(entity)
+
     } recover {
       case e: TooManyRequestsException =>
         ServiceUnavailable("The system is currently overloaded. Try again later.")
